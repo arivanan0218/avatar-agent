@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   type AgentState,
@@ -56,6 +57,8 @@ export const SessionView = ({
               ? 'Agent did not join the room. '
               : 'Agent connected but did not complete initializing. ';
 
+          console.error('Agent timeout:', { agentState, reason });
+
           toastAlert({
             title: 'Session ended',
             description: (
@@ -75,7 +78,7 @@ export const SessionView = ({
           });
           room.disconnect();
         }
-      }, 10_000);
+      }, 30_000); // Increased timeout to 30 seconds
 
       return () => clearTimeout(timeout);
     }
@@ -93,28 +96,30 @@ export const SessionView = ({
       ref={ref}
       inert={disabled}
       className={cn(
-        'bg-slate-900 min-h-screen',
+        'bg-white dark:bg-black min-h-screen',
         !chatOpen && 'max-h-svh overflow-hidden'
       )}
     >
       {/* Header */}
-      <div className="fixed top-0 left-0 right-0 z-40 bg-slate-800/80 backdrop-blur-md border-b border-slate-700">
+      <div className="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M24 4C26.2091 4 28 5.79086 28 8C28 10.2091 26.2091 12 24 12C21.7909 12 20 10.2091 20 8C20 5.79086 21.7909 4 24 4Z" fill="white"/>
-                <path d="M32 16C32 13.7909 30.2091 12 28 12H20C17.7909 12 16 13.7909 16 16V36C16 38.2091 17.7909 40 20 40H28C30.2091 40 32 38.2091 32 36V16Z" fill="white"/>
-                <path d="M22 20C22 18.8954 22.8954 18 24 18C25.1046 18 26 18.8954 26 20V32C26 33.1046 25.1046 34 24 34C22.8954 34 22 33.1046 22 32V20Z" fill="#007AFF"/>
-              </svg>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
+              <Image 
+                src="/rise_icon.png" 
+                alt="Rise AI Logo" 
+                width={32}
+                height={32}
+                className="object-contain"
+              />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-white">iPear Support</h1>
+              <h1 className="text-lg font-semibold text-black dark:text-white">Rise AI Support</h1>
             </div>
           </div>
           
           <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1 text-sm text-slate-400">
+            <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span>Connected</span>
             </div>
@@ -125,7 +130,7 @@ export const SessionView = ({
       {/* Live Transcription Overlay */}
       {transcriptions.length > 0 && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[60]">
-          <div className="bg-black/60 text-white px-6 py-3 rounded-xl text-sm font-medium backdrop-blur-md border border-white/20 shadow-lg">
+          <div className="bg-black/80 dark:bg-white/80 text-white dark:text-black px-6 py-3 rounded-xl text-sm font-medium backdrop-blur-md border border-gray-300 dark:border-gray-700 shadow-lg">
             {transcriptions[transcriptions.length - 1].text}
           </div>
         </div>
@@ -189,16 +194,16 @@ export const SessionView = ({
                   sessionStarted && messages.length === 0 && 'pointer-events-none'
                 )}
               >
-                <div className="inline-flex items-center space-x-2 bg-slate-800/90 backdrop-blur-sm px-4 py-2 rounded-full">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                  <p className="text-sm font-medium text-slate-300">
+                <div className="inline-flex items-center space-x-2 bg-gray-100/90 dark:bg-gray-900/90 backdrop-blur-sm px-4 py-2 rounded-full">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     AI Assistant is listening
                   </p>
                 </div>
               </motion.div>
             )}
 
-            <div className="bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-700 p-4">
+            <div className="bg-gray-100/90 dark:bg-gray-900/90 backdrop-blur-md rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
               <AgentControlBar
                 capabilities={capabilities}
                 onChatOpenChange={setChatOpen}

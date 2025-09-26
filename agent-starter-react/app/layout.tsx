@@ -57,10 +57,10 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/ipear-logo.svg" />
+        <link rel="icon" href="/rise_icon.png" />
       </head>
       <body
-        className={`${publicSans.variable} ${commitMono.variable} overflow-x-hidden antialiased bg-slate-900`}
+        className={`${publicSans.variable} ${commitMono.variable} overflow-x-hidden antialiased bg-white dark:bg-black`}
       >
         {children}
       </body>

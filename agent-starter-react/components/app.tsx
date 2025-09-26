@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Room, RoomEvent } from 'livekit-client';
+import { Room, RoomEvent, DisconnectReason, ConnectionQuality, Participant } from 'livekit-client';
 import { motion } from 'motion/react';
 import { RoomAudioRenderer, RoomContext, StartAudio } from '@livekit/components-react';
 import { toastAlert } from '@/components/alert-toast';
@@ -21,26 +21,90 @@ interface AppProps {
 export function App({ appConfig }: AppProps) {
   const room = useMemo(() => new Room(), []);
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const { connectionDetails, refreshConnectionDetails } = useConnectionDetails();
 
   useEffect(() => {
-    const onDisconnected = () => {
-      setSessionStarted(false);
-      refreshConnectionDetails();
+    const onDisconnected = (reason?: DisconnectReason) => {
+      console.log('Room disconnected:', reason);
+      
+      // Auto-retry connection for certain disconnection reasons
+      const shouldRetry = retryCount < 3 && (
+        reason === DisconnectReason.STATE_MISMATCH ||
+        reason === DisconnectReason.SIGNAL_CLOSE ||
+        !reason // Unknown disconnection
+      );
+      
+      if (shouldRetry && sessionStarted) {
+        setIsReconnecting(true);
+        setRetryCount(prev => prev + 1);
+        
+        console.log(`Attempting reconnection (${retryCount + 1}/3)...`);
+        
+        // Wait a bit before retrying
+        setTimeout(() => {
+          refreshConnectionDetails();
+          setIsReconnecting(false);
+        }, 2000);
+        
+        toastAlert({
+          title: 'Reconnecting...',
+          description: `Connection lost. Attempting to reconnect (${retryCount + 1}/3)`,
+        });
+      } else {
+        setSessionStarted(false);
+        setRetryCount(0);
+        setIsReconnecting(false);
+        refreshConnectionDetails();
+        
+        // Show user-friendly message based on disconnection reason
+        if (reason) {
+          toastAlert({
+            title: 'Session ended',
+            description: `Connection lost. Please try again.`,
+          });
+        }
+      }
     };
+    
     const onMediaDevicesError = (error: Error) => {
+      console.error('Media devices error:', error);
       toastAlert({
         title: 'Encountered an error with your media devices',
         description: `${error.name}: ${error.message}`,
       });
     };
+    
+    const onConnectionQualityChanged = (quality: ConnectionQuality, participant: Participant) => {
+      console.log('Connection quality changed:', quality, participant?.identity);
+      if (quality === ConnectionQuality.Poor) {
+        console.warn('Poor connection quality detected');
+      }
+    };
+    
+    const onParticipantDisconnected = (participant: Participant) => {
+      console.log('Participant disconnected:', participant?.identity);
+      if (participant?.identity?.includes('agent')) {
+        toastAlert({
+          title: 'Agent disconnected',
+          description: 'The AI agent has left the session. Reconnecting...',
+        });
+      }
+    };
+    
     room.on(RoomEvent.MediaDevicesError, onMediaDevicesError);
     room.on(RoomEvent.Disconnected, onDisconnected);
+    room.on(RoomEvent.ConnectionQualityChanged, onConnectionQualityChanged);
+    room.on(RoomEvent.ParticipantDisconnected, onParticipantDisconnected);
+    
     return () => {
       room.off(RoomEvent.Disconnected, onDisconnected);
       room.off(RoomEvent.MediaDevicesError, onMediaDevicesError);
+      room.off(RoomEvent.ConnectionQualityChanged, onConnectionQualityChanged);
+      room.off(RoomEvent.ParticipantDisconnected, onParticipantDisconnected);
     };
-  }, [room, refreshConnectionDetails]);
+  }, [room, refreshConnectionDetails, retryCount, sessionStarted]);
 
   useEffect(() => {
     let aborted = false;

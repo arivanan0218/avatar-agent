@@ -1,4 +1,6 @@
 from dotenv import load_dotenv
+import logging
+import asyncio
 
 from livekit import agents
 from livekit.agents import AgentSession, Agent, RoomInputOptions, RoomOutputOptions
@@ -10,46 +12,70 @@ from livekit.plugins import (
     silero,
     anam
 )
-# Removed hedra and PIL imports as we're now using Anam AI
 import os
+
+# Load environment variables
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class Assistant(Agent):
     def __init__(self) -> None:
-        super().__init__(instructions="You are a helpful AI assistant providing detailed information about the iPhone, including its features, specifications, pricing, and customer benefits.")
+        super().__init__(instructions="You are Rise AI, a helpful AI assistant. Provide friendly, professional customer support and assistance. Be concise, helpful, and maintain a warm, approachable tone.")
+
 async def entrypoint(ctx: agents.JobContext):
-    session = AgentSession(
-        stt=deepgram.STT(model="nova-3", language="multi"),
-        llm=openai.LLM(model="gpt-4o-mini"),
-        tts=cartesia.TTS(model="sonic-2", voice="f786b574-daa5-4673-aa0c-cbe3e8534c02"),
-        vad=silero.VAD.load(),
-        # Removed MultilingualModel() to avoid timeout - using default turn detection
-    )
-    
-    # Initialize and start Anam AI avatar
-    persona_config = anam.PersonaConfig(
-        name="AI Assistant",
-        avatarId="071b0286-4cce-4808-bee2-e642f1062de3"  # You can replace this with a specific Anam avatar ID
-    )
-    avatar = anam.AvatarSession(persona_config=persona_config)
-    
-    await avatar.start(session, room=ctx.room)
-
-    await session.start(
-        room=ctx.room,
-        agent=Assistant(),
-        room_input_options=RoomInputOptions(
-            # For telephony applications, use `BVCTelephony` instead for best results
-            noise_cancellation=noise_cancellation.BVC(), 
-        ),
-        room_output_options=RoomOutputOptions(
-            audio_enabled=False,
+    try:
+        logger.info(f"Agent starting in room: {ctx.room.name}")
+        
+        # Create agent session with error handling
+        session = AgentSession(
+            stt=deepgram.STT(model="nova-3", language="multi"),
+            llm=openai.LLM(model="gpt-4o-mini"),
+            tts=cartesia.TTS(model="sonic-2", voice="f786b574-daa5-4673-aa0c-cbe3e8534c02"),
+            vad=silero.VAD.load(),
         )
-    )
-
-    await session.generate_reply(
-        instructions="Greet the user and offer your assistance. Speak English"
-    )
+        
+        logger.info("Agent session created successfully")
+        
+        # Initialize Anam AI avatar with error handling
+        try:
+            persona_config = anam.PersonaConfig(
+                name="Rise AI Assistant",
+                avatarId="edf6fdcb-acab-44b8-b974-ded72665ee26"
+            )
+            avatar = anam.AvatarSession(persona_config=persona_config)
+            await avatar.start(session, room=ctx.room)
+            logger.info("Anam AI avatar initialized successfully")
+        except Exception as avatar_error:
+            logger.warning(f"Failed to initialize Anam avatar: {avatar_error}")
+            # Continue without avatar if it fails
+        
+        # Start the agent session
+        await session.start(
+            room=ctx.room,
+            agent=Assistant(),
+            room_input_options=RoomInputOptions(
+                noise_cancellation=noise_cancellation.BVC(), 
+            ),
+            room_output_options=RoomOutputOptions(
+                audio_enabled=True,  # Enable audio output
+            )
+        )
+        
+        logger.info("Agent session started successfully")
+        
+        # Generate initial greeting
+        await session.generate_reply(
+            instructions="Greet the user and offer your assistance. Speak English"
+        )
+        
+        logger.info("Initial greeting generated")
+        
+    except Exception as e:
+        logger.error(f"Error in agent entrypoint: {e}")
+        raise
 
 
 if __name__ == "__main__":
